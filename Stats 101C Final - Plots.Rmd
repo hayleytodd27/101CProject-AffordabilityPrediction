@@ -1,0 +1,698 @@
+---
+title: "Stats 101C Project"
+author: "Hayley Todd"
+output: html_document
+---
+
+```{r}
+setwd("~/Downloads")
+project <- read.csv("HTrainLast.csv")
+projecttest <- read.csv("HTestLastNoY.csv")
+sum(complete.cases(project))
+head(projecttest)
+sapply(project,function(x) sum(is.na(x)))
+```
+
+
+```{r}
+head(projecttest)
+projecttest <- projecttest[,-1]
+library(tidyr)
+library(dplyr)
+trialtest <- projecttest %>% distinct()
+dim(trialtest)
+```
+
+```{r}
+attach(project)
+levels(Alley) <- c(levels(Alley), "None")
+Alley[is.na(Alley)] <- "None"
+project$Alley <- Alley
+
+levels(BsmtCond) <- c(levels(BsmtCond), "None")
+BsmtCond[is.na(BsmtCond)] <- "None"
+project$BsmtCond <- BsmtCond
+
+levels(BsmtExposure) <- c(levels(BsmtExposure), "None")
+BsmtExposure[is.na(BsmtExposure)] <- "None"
+project$BsmtExposure <- BsmtExposure
+
+levels(BsmtQual) <- c(levels(BsmtQual), "None")
+BsmtQual[is.na(BsmtQual)] <- "None"
+project$BsmtQual <- BsmtQual
+
+levels(BsmtFinType1) <- c(levels(BsmtFinType1), "None")
+BsmtFinType1[is.na(BsmtFinType1)] <- "None"
+project$BsmtFinType1 <- BsmtFinType1
+
+levels(BsmtFinType2) <- c(levels(BsmtFinType2), "None")
+BsmtFinType2[is.na(BsmtFinType2)] <- "None"
+project$BsmtFinType2 <- BsmtFinType2
+
+levels(FireplaceQu) <- c(levels(FireplaceQu), "None")
+FireplaceQu[is.na(FireplaceQu)] <- "None"
+project$FireplaceQu <- FireplaceQu
+
+levels(GarageType) <- c(levels(GarageType), "None")
+GarageType[is.na(GarageType)] <- "None"
+project$GarageType <- GarageType
+
+levels(GarageFinish) <- c(levels(GarageFinish), "None")
+GarageFinish[is.na(GarageFinish)] <- "None"
+project$GarageFinish <- GarageFinish
+
+levels(GarageQual) <- c(levels(GarageQual), "None")
+GarageQual[is.na(GarageQual)] <- "None"
+project$GarageQual <- GarageQual
+
+levels(GarageCond) <- c(levels(GarageCond), "None")
+GarageCond[is.na(GarageCond)] <- "None"
+project$GarageCond <- GarageCond
+
+project$GarageYrBlt <- as.factor(GarageYrBlt)
+
+levels(PoolQC) <- c(levels(PoolQC), "None")
+PoolQC[is.na(PoolQC)] <- "None"
+project$PoolQC <- PoolQC
+
+levels(Fence) <- c(levels(Fence), "None")
+Fence[is.na(Fence)] <- "None"
+project$Fence <- Fence
+
+levels(MiscFeature) <- c(levels(MiscFeature), "None")
+MiscFeature[is.na(MiscFeature)] <- "None"
+project$MiscFeature <- MiscFeature
+
+MSSubClass <- as.factor(MSSubClass) ##Makes it so that the numbers are categories
+project$MSSubClass <- MSSubClass
+
+
+dim(project)
+sum(complete.cases(project))
+sapply(project,function(x) sum(is.na(x)))
+nolotproject <- project[,-4]
+head(nolotproject)
+sapply(nolotproject,function(x) sum(is.na(x)))
+nolotprojcomp <- nolotproject[which(complete.cases(nolotproject)),]
+dim(nolotprojcomp)
+3451/3500
+
+fullproj <- project[which(complete.cases(project)),]
+write.csv(fullproj, file = "cleanproject83.csv")
+write.csv(project, file = "cleanprojectfull.csv")
+write.csv(nolotprojcomp, file = "cleannolotcomp.csv")
+
+detach(project)
+attach(fullproj)
+head(fullproj)
+dim(fullproj)
+```
+
+```{r}
+library(dplyr)
+which(is.na(project$affordabilitty) == T)
+project <- project[-c(833,2428),]
+dim(project)
+sapply(fullproj,function(x) sum(is.na(x)))
+summary(project$LotFrontage)
+```
+
+```{r}
+project$Utilities[c(2326,3380)] <- "AllPub"
+project$BsmtFullBath[c(2074,2847)] <- 0
+project$BsmtHalfBath[c(2074,2847)] <- 0
+```
+
+```{r}
+which(complete.cases(project$KitchenQual) == FALSE)
+project[c(1458,2735),] #these are identical
+
+project$KitchenQual <- as.character(project$KitchenQual)
+
+kitchensub <- project[which(complete.cases(project$KitchenQual)==TRUE),]
+kitchensub <- kitchensub[which(kitchensub$KitchenAbvGr == 1),]
+dim(kitchensub)
+
+junkkitchen <- kitchensub$KitchenQual
+#junkkitchenrooms <- project$KitchenAbvGr[which(complete.cases(project$KitchenQual)==TRUE)]
+
+length(junkkitchen)
+newkitchqual <- numeric(3335)
+for(i in 1:length(junkkitchen)){
+  if(junkkitchen[i] == "Ex"){
+    newkitchqual[i] = 5
+  }
+  if(junkkitchen[i] == "Gd"){
+    newkitchqual[i] = 4
+  }
+  if(junkkitchen[i] == "TA"){
+    newkitchqual[i] = 3
+  }
+  if(junkkitchen[i] == "Fa"){
+    newkitchqual[i] = 2
+  }
+  if(junkkitchen[i] == "Po"){
+    newkitchqual[i] = 1
+  }
+}
+
+kitchenstuff <- data.frame(kitchensub$KitchenAbvGr,newkitchqual)
+head(kitchenstuff)
+median(kitchenstuff$newkitchqual)
+project$KitchenQual[c(1458,2735)] <- "TA"
+project$KitchenQual <- as.factor(project$KitchenQual)
+
+levels(project$KitchenQual)
+```
+
+```{r}
+summary(project$Functional)
+which(complete.cases(project$Functional) == FALSE)
+project[c(112,2766,3152),] #112 and 2766 are identical
+##Data description says "Assume typical unless deductions are warranted" so will fill in NAs with Typ
+project$Functional[c(112,2766,3152)] <- "Typ"
+```
+
+```{r}
+summary(project$Electrical)
+which(complete.cases(project$Electrical) == FALSE)
+project[c(849,2417),] #identical
+library(ggplot2)
+ggplot(project, aes(x = YearBuilt, fill = Electrical)) + geom_density(alpha = 0.5) + labs(title = "Density of Year Built By Electrical Type") + theme(plot.title = element_text(hjust =  0.5))
+project$Electrical[c(849,2417)] <- "SBrkr"
+```
+
+
+```{r}
+sapply(project,function(x) sum(is.na(x)))
+```
+MSZoning (factor of 5 variables) 4 missing, Lot Frontage (numerical), MasVnrType and MasVnrArea (these missing values should be the same) (type is factor, area is numerical) (NA type has an area)
+
+```{r}
+numbers <- which(complete.cases(project$MasVnrType) == FALSE)
+which(complete.cases(project$MasVnrArea) == FALSE) #2894 has type but no area
+##5,111,122 are identical
+
+project[5,]==project[111,]
+project[numbers,]
+
+project[2894,]
+MasVnrmod <- lm(MasVnrArea ~ MasVnrType, data = project)
+summary(MasVnrmod)
+```
+
+```{r}
+which(complete.cases(project$MSZoning) == FALSE)
+project[c(47,112,2326,2766),]
+```
+
+removing duplicate rows based on all columns:
+THIS IS WHERE NEWCLEANFULL IS MADE!!
+
+```{r}
+head(project)
+trialproj <- project[,-1]
+trialproj$KitchenQual[c(1458,2735)] <- "TA"
+trialproj$KitchenQual <- as.factor(trialproj$KitchenQual)
+levels(trialproj$KitchenQual)
+projnorepeat <- trialproj %>% distinct()
+dim(projnorepeat)
+sapply(projnorepeat,function(x) sum(is.na(x)))
+## NEW CLEAN FULL
+write.csv(trialproj, file = "newcleanfull.csv")
+#write.csv(projnorepeat, file = "norepeatdata.csv")
+```
+
+
+```{r}
+detach(fullproj)
+set.seed(97531739)
+train <- sample(1:dim(fullproj)[1], dim(fullproj)[1]*0.7)
+traintrain <- fullproj[train,]
+testtrain <- fullproj[-train,]
+
+Affordable <- fullproj[fullproj$affordabilitty == "Affordable",]
+Unaffordable <- fullproj[fullproj$affordabilitty == "Unaffordable",]
+```
+
+```{r}
+ggplot(project, aes(x = MasVnrType, y = MasVnrArea, fill = MasVnrType)) + geom_boxplot()
+```
+
+```{r}
+View(data.frame(project$MasVnrType, project$MasVnrArea))
+```
+
+
+Fancier graph attempts:
+
+MSSubClass
+
+```{r}
+ggplot(trialproj, aes(x = MSSubClass, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+MSZoning:
+```{r}
+ggplot(trialproj, aes(x = MSZoning, fill = affordabilitty)) + geom_bar(position = position_dodge())
+#ggplot(projnorepeat, aes(x = MSZoning, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+
+Lot info:
+```{r}
+attach(fullproj)
+library(ggplot2)
+
+par(mfrow=c(1,2))
+ggplot(trialproj, aes(x = LotFrontage, fill = affordabilitty)) + 
+  geom_density(alpha = 0.5) #No
+ggplot(projnorepeat, aes(x = LotFrontage, fill = affordabilitty)) + 
+  geom_density(alpha = 0.5) #No
+```
+```{r}
+ggplot(trialproj, aes(x = affordabilitty, y = log(LotArea), fill = affordabilitty)) + 
+  geom_boxplot(alpha = 0.5) + 
+  coord_flip() + labs(title = "Log of Lot Area Based on Affordability") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+ggplot(fullproj, aes(x = log(LotArea), fill = affordabilitty)) + geom_density(alpha = 0.5)
+```
+
+Street:
+```{r}
+ggplot(trialproj, aes(x = Street, fill = affordabilitty)) + geom_bar(position = position_dodge())
+
+ggplot(projnorepeat, aes(x = Street, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Alley:
+```{r}
+ggplot(trialproj, aes(x = Alley, fill = affordabilitty)) + geom_bar(position = position_dodge())
+#junkmod <- glm(affordabilitty ~ Alley, data = fullproj, family = 'binomial')
+#summary(junkmod)
+```
+
+```{r}
+gravel <- c(which(new.test$Alley == "Grvl"))
+```
+
+
+LotShape:
+```{r}
+ggplot(trialproj, aes(x = LotShape, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+LandContour:
+```{r}
+ggplot(trialproj, aes(x = LandContour, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Utilities: This one is pretty useless since they are all the same
+```{r}
+ggplot(trialproj, aes(x = Utilities, fill = affordabilitty)) + geom_bar() + facet_wrap(~affordabilitty)
+```
+
+LotConfig:
+```{r}
+ggplot(trialproj, aes(x = LotConfig, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+LandSlope:
+```{r}
+ggplot(trialproj, aes(x = LandSlope, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Neighborhood:
+```{r}
+ggplot(trialproj, aes(x = Neighborhood, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Condition1:
+```{r}
+ggplot(trialproj, aes(x = Condition1, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Condition2:
+```{r}
+ggplot(fullproj, aes(x = Condition2, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Building Type:
+```{r}
+ggplot(trialproj, aes(x = BldgType, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+House Style:
+
+```{r}
+ggplot(fullproj, aes(x = HouseStyle, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+
+Overall ranks:
+```{r}
+ggplot(fullproj, aes(x = OverallQual, fill = affordabilitty)) + geom_density(alpha = 0.5) #Yes
+ggplot(fullproj, aes(x = OverallCond, fill = affordabilitty)) + geom_density(alpha = 0.5) #Not as much
+
+mean(Affordable$OverallCond)
+mean(Unaffordable$OverallCond) #Actually slightly lower than the affordable homes
+
+mean(Affordable$OverallQual)
+mean(Unaffordable$OverallQual) #However this one is a little more than 2 levels higher
+
+#Confirms results in graph, Qual seems like a good predictor, Cond does not. 
+
+```
+
+Year info:
+```{r}
+min(YearBuilt);min(YearRemodAdd) #No houses on that haven't been built/remodeled before 1950
+ggplot(trialproj, aes(x = YearBuilt, fill = affordabilitty)) + geom_density(alpha = 0.5) #Yes
+ggplot(trialproj, aes(x = YearRemodAdd, fill = affordabilitty)) + geom_density(alpha = 0.5) #Yes
+ggplot(trialproj, aes(x = YrSold, fill = affordabilitty)) + geom_histogram(position= position_dodge()) #Maybe slightly? But not much
+ggplot(trialproj, aes(x = MoSold, fill = affordabilitty)) + geom_density(alpha = 0.5) #No
+
+yearmod <- glm(affordabilitty ~ YearBuilt + YearRemodAdd, data = trialproj, family = 'binomial')
+yearmod2 <- glm(affordabilitty ~ MoSold + YrSold, data = trialproj, family = 'binomial')
+vif(yearmod2)
+```
+
+Roof Style and Material:
+```{r}
+ggplot(fullproj, aes(x = RoofStyle, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = RoofMatl, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Exterior 1st and 2nd:
+```{r}
+ggplot(trialproj, aes(x = Exterior1st, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = Exterior2nd, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+summary(trialproj$Exterior1st)
+summary(trialproj$Exterior2nd)
+```
+
+```{r}
+extmod <- glm(affordabilitty ~ Exterior1st + Exterior2nd, data = trialproj, family = 'binomial')
+vif(extmod)
+```
+
+
+Masonry Veneer Type:
+```{r}
+ggplot(trialproj, aes(x = MasVnrType, fill = affordabilitty)) + geom_bar(position = position_dodge())
+
+trialproj$MasVnrType[1]
+trialproj$MasVnrType <- as.factor(trialproj$MasVnrType)
+
+MasYN <- c(length(trialproj$affordabilitty))
+for(i in 1:length(trialproj$affordabilitty)){
+  if(trialproj$MasVnrType[i] == "BrkCmn"){
+    MasYN[i] <- 1
+  }
+  if(trialproj$MasVnrType[i] == "BrkFace"){
+    MasYN[i] <- 1
+  }
+  if(trialproj$MasVnrType[i] == "Stone"){
+    MasYN[i] <- 1
+  }
+  if(trialproj$MasVnrType[i] == "None"){
+    MasYN[i] <- 0
+  }
+  if(trialproj$MasVnrType[i] == "NA"){
+    MasYN[i] <- 0
+  }
+}
+```
+
+```{r}
+mastesttype <- which(is.na(new.test$MasVnrType) == TRUE)
+```
+
+```{r}
+typemod <- glm(affordabilitty ~ MasVnrType, data = trialproj, family = 'binomial')
+areamod <- glm(affordabilitty ~ MasVnrArea, data = trialproj, family = 'binomial')
+togmod <- glm(affordabilitty ~ MasVnrArea + MasVnrType, data = trialproj, family = 'binomial')
+summary(togmod)
+vif(togmod)
+summary(typemod);summary(areamod)
+```
+
+
+Masonry Veneer Area:
+```{r}
+ggplot(fullproj, aes(x = MasVnrArea, fill = affordabilitty)) + geom_density(alpha = 0.5) #No
+```
+
+Exterior Quality and Condition:
+```{r}
+ggplot(trialproj, aes(x = ExterQual, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = ExterCond, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Foundation:
+```{r}
+ggplot(trialproj, aes(x = Foundation, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+
+Basement Info:
+
+```{r}
+ggplot(trialproj, aes(x = BsmtQual, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(fullproj, aes(x = BsmtCond, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = BsmtExposure, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = BsmtFinType1, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = BsmtFinType2, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = BsmtFinSF1, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(trialproj, aes(x = BsmtFinSF2, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(trialproj, aes(x = BsmtUnfSF, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(trialproj, aes(x = TotalBsmtSF, fill = affordabilitty)) + geom_density(alpha = 0.5)
+
+library(car)
+bsmtmod <- glm(affordabilitty ~ BsmtFinSF1 + BsmtFinSF2 + BsmtUnfSF + TotalBsmtSF, data = trialproj, family = 'binomial')
+vif(bsmtmod)
+
+ggplot(trialproj, aes(x = BsmtFullBath, fill = affordabilitty)) + geom_histogram(position = position_dodge())
+ggplot(trialproj, aes(x = BsmtHalfBath, fill = affordabilitty)) + geom_histogram(position = position_dodge())
+```
+
+Heating Info:
+```{r}
+ggplot(trialproj, aes(x = Heating, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = HeatingQC, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Central Air:
+```{r}
+ggplot(fullproj, aes(x = CentralAir, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Electrical:
+```{r}
+ggplot(fullproj, aes(x = Electrical, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Square Footage Info:
+```{r}
+ggplot(fullproj, aes(x = X1stFlrSF, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(fullproj, aes(x = X2ndFlrSF, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(fullproj, aes(x = LowQualFinSF, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(fullproj, aes(x = GrLivArea, fill = affordabilitty)) + geom_density(alpha = 0.5)
+
+sfmod <- glm(affordabilitty ~ X1stFlrSF + GrLivArea, data = trialproj, family = 'binomial')
+vif(sfmod)
+head(trialproj)
+```
+
+Full/Half Bath:
+
+```{r}
+ggplot(trialproj, aes(x = FullBath, fill = affordabilitty)) + geom_density(alpha = 0.5) #Yes
+ggplot(trialproj, aes(x = HalfBath, fill = affordabilitty)) + geom_density(alpha = 0.5) #Yes
+
+bathmod <- glm(affordabilitty ~ FullBath + HalfBath, data = trialproj, family = 'binomial')
+vif(bathmod)
+```
+
+Above Ground Info:
+
+```{r}
+ggplot(trialproj, aes(x = BedroomAbvGr, fill = affordabilitty)) + geom_histogram(position = position_dodge(), binwidth = 1)
+ggplot(trialproj, aes(x = KitchenAbvGr, fill = affordabilitty)) + geom_histogram(position = position_dodge(), binwidth = 1)
+ggplot(trialproj, aes(x = TotRmsAbvGrd, fill = affordabilitty)) + geom_histogram(position = position_dodge(), binwidth = 1)
+
+abovemod <- glm(affordabilitty ~ BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd, data = trialproj, family = 'binomial')
+summary(abovemod)
+```
+
+Kitchen Qual:
+```{r}
+library(ggplot2)
+ggplot(kitchensub, aes(x = KitchenQual)) + geom_bar() 
+```
+
+Functional:
+```{r}
+ggplot(trialproj, aes(x = Functional, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Fireplaces:
+
+```{r}
+ggplot(trialproj, aes(x = Fireplaces, fill = affordabilitty)) + geom_histogram(position = position_dodge())
+
+FireplaceYN <- numeric(length(trialproj$affordabilitty))
+for(i in 1:length(trialproj$affordabilitty)){
+  if(trialproj$Fireplaces[i] > 0){
+    FireplaceYN[i] <- 1
+  }
+  if(trialproj$Fireplaces[i] == 0){
+    FireplaceYN[i] <- 0
+  }
+}
+trialproj$FireplaceYN <- as.factor(FireplaceYN)
+ggplot(trialproj, aes(x = FireplaceYN, fill = affordabilitty)) + geom_histogram(stat = 'count', position = position_dodge(), bins = 10) + labs(title = "Fireplace YN by Affordability") + theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+ggplot(trialproj, aes(x = FireplaceQu, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = FireplaceYN, fill = affordabilitty)) + geom_histogram(position = position_dodge())
+```
+
+
+Garage Info:
+
+```{r}
+ggplot(fullproj, aes(x = GarageType, fill = affordabilitty)) + geom_bar() + facet_wrap(~affordabilitty)
+```
+
+```{r}
+ggplot(fullproj, aes(x = GarageCars, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(fullproj, aes(x = GarageArea, fill = affordabilitty)) + geom_density(alpha = 0.5)
+```
+```{r}
+ggplot(fullproj, aes(x = GarageFinish, fill = affordabilitty)) + geom_bar() + facet_wrap(~affordabilitty)
+```
+```{r}
+ggplot(fullproj, aes(x = GarageQual, fill = affordabilitty)) + geom_bar() + facet_wrap(~affordabilitty)
+```
+```{r}
+ggplot(fullproj, aes(x = GarageCond, fill = affordabilitty)) + geom_bar() + facet_wrap(~affordabilitty)
+```
+
+Paved Drive:
+```{r}
+ggplot(fullproj, aes(x = PavedDrive, fill = affordabilitty)) + geom_bar() + facet_wrap(~affordabilitty)
+```
+
+
+Porch Info:
+
+```{r}
+ggplot(trialproj, aes(x = WoodDeckSF, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(trialproj, aes(x = OpenPorchSF, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(trialproj, aes(x = log(EnclosedPorch), fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(trialproj, aes(x = X3SsnPorch, fill = affordabilitty)) + geom_density(alpha = 0.5)
+ggplot(trialproj, aes(x = ScreenPorch, fill = affordabilitty)) + geom_density(alpha = 0.5)
+
+summary(trialproj[which(trialproj$affordabilitty == "Affordable"),]$EnclosedPorch)
+summary(trialproj[which(trialproj$affordabilitty == "Unaffordable"),]$EnclosedPorch)
+
+porchmod <- glm(affordabilitty ~ WoodDeckSF + OpenPorchSF + EnclosedPorch + X3SsnPorch + ScreenPorch, data = trialproj, family = 'binomial')
+vif(porchmod)
+head(trialproj)
+
+porch <- numeric(length(trialproj$affordabilitty))
+for(i in 1:length(trialproj$affordabilitty)){
+  if((trialproj$OpenPorchSF[i] | trialproj$EnclosedPorch[i] | trialproj$X3SsnPorch[i] | trialproj$ScreenPorch[i]) > 0)
+    porch[i] = "Porch"
+  if((trialproj$OpenPorchSF[i] | trialproj$EnclosedPorch[i] | trialproj$X3SsnPorch[i] | trialproj$ScreenPorch[i]) == 0)
+    porch[i] = "No Porch"
+}
+head(porch)
+trialproj <- data.frame(trialproj, porch)
+names(trialproj)[81] = "Porch"
+head(trialproj)
+ggplot(trialproj, aes(x = Porch, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = Porch, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+
+Pool:
+
+```{r}
+ggplot(trialproj, aes(x = log(PoolArea), fill = affordabilitty)) + geom_density(alpha = 0.5)
+```
+
+
+```{r}
+ggplot(trialproj, aes(x = PoolQC, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+head(new.test)
+```
+
+
+Fence Quality:
+```{r}
+ggplot(fullproj, aes(x = Fence, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+Misc:
+```{r}
+ggplot(trialproj, aes(x = MiscFeature, fill = affordabilitty)) + geom_bar(position = position_dodge())
+```
+
+```{r}
+ggplot(trialproj, aes(x = MiscVal, fill = affordabilitty)) + geom_density(alpha = 0.5)
+```
+
+Sale info:
+```{r}
+ggplot(fullproj, aes(x = SaleType, fill = affordabilitty)) + geom_bar() + facet_wrap(~affordabilitty)
+```
+
+```{r}
+ggplot(fullproj, aes(x = SaleCondition, fill = affordabilitty)) + geom_bar() + facet_wrap(~affordabilitty)
+```
+

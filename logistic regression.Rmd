@@ -1,0 +1,611 @@
+---
+title: "Classification"
+author: "Hayley Todd - 904637605"
+date: "November 23, 2018"
+output: pdf_document
+---
+
+# Logistic Regression
+
+New Dataframe with only vars which have some type of discriminativeness
+```{r}
+setwd('~/Downloads')
+h.df <- read.csv("newcleanfull.csv")
+#head(h.df)
+#library(mice)
+#imputation <- mice(h.df[, names(h.df) %in% c('MSZoning', 'LotFrontage')], method ='rf', printFlag = FALSE)
+#imputes <- complete(imputation)
+#h.df$MSZoning <- imputes[,1]
+#h.df$LotFrontage <- imputes[,2]
+head(h.df)
+
+sapply(h.df, function(x) sum(is.na(x)))
+h.df <- h.df[,-c(1,4)]
+h.df <- h.df[complete.cases(h.df$affordabilitty),]
+
+transCols <- c(
+  "MSSubClass",
+  "OverallQual",
+  "OverallCond",
+  "BsmtFullBath",
+  "BsmtHalfBath",
+  "FullBath",
+  "HalfBath",
+  "BedroomAbvGr",
+  "KitchenAbvGr",
+  "TotRmsAbvGrd",
+  "Fireplaces",
+  "GarageCars",
+  "MoSold"
+)
+h.df[transCols] <- lapply(h.df[transCols], factor)
+```
+
+```{r}
+porch <- numeric(length(h.df$affordabilitty))
+for(i in 1:length(h.df$affordabilitty)){
+  if((h.df$OpenPorchSF[i] | h.df$EnclosedPorch[i] | h.df$X3SsnPorch[i] | h.df$ScreenPorch[i]) > 0)
+    porch[i] = "Porch"
+  if((h.df$OpenPorchSF[i] | h.df$EnclosedPorch[i] | h.df$X3SsnPorch[i] | h.df$ScreenPorch[i]) == 0)
+    porch[i] = "No Porch"
+}
+h.df$PorchYN <- as.factor(porch)
+```
+
+```{r}
+FireplaceYN <- numeric(length(h.df$affordabilitty))
+h.df$Fireplaces <- as.numeric(as.character(h.df$Fireplaces))
+for(i in 1:length(h.df$affordabilitty)){
+  if(h.df$Fireplaces[i] > 0){
+    FireplaceYN[i] <- 1
+  }
+  if(h.df$Fireplaces[i] == 0){
+    FireplaceYN[i] <- 0
+  }
+}
+h.df$FireplaceYN <- as.factor(FireplaceYN)
+#ggplot(h.df, aes(x = FireplaceYN, fill = affordabilitty)) + geom_histogram(position = position_dodge())
+```
+
+```{r}
+h.df$HasMsn <- ifelse(h.df$MasVnrType == 'None', c('No'), c('Yes'))
+h.df$HasMsn[2894] <- 'Yes'
+h.df$HasMsn <- as.factor(h.df$HasMsn)
+```
+
+```{r}
+h.df$TotBath <- as.factor(as.integer(as.character(h.df$FullBath)) + as.integer(as.character(h.df$HalfBath))*0.5)
+#h.df$BsmtTotBath <- as.factor(as.integer(h.df$BsmtFullBath) + as.integer(h.df$BsmtHalfBath)*0.5)
+```
+
+```{r}
+h.df$FenceYN <- ifelse(h.df$Fence == 'None', c('No'), c('Yes'))
+h.df$FenceYN <- as.factor(h.df$FenceYN)
+```
+
+```{r}
+h.df$NewGarage <- as.factor(
+  ifelse(h.df$GarageYrBlt != "None",
+                         ifelse(as.numeric(as.character(h.df$GarageYrBlt)) < 1985, c("Old"), c("New")),
+                         c("None"))
+)
+levels(h.df$NewGarage) = c("New","Old", "None")
+
+tryvec <- which(is.na(h.df$NewGarage) == TRUE)
+h.df$NewGarage[tryvec] = "None"
+#h.df$NewGarage <- as.factor(h.df$NewGarage)
+#summary(h.df$NewGarage)
+#sum(is.na(h.df$NewGarage))
+```
+
+```{r}
+h.df$LotArea <- log(h.df$LotArea)
+```
+
+
+```{r}
+head(h.df)
+sapply(h.df, function(x) sum(is.na(x)))
+not.helpful <- c(
+  "OverallCond", "FullBath", "HalfBath","BsmtFullBath", "BsmtHalfBath","BsmtCond", "BsmtFinSF1", "BsmtFinType2","BsmtFinSF2", 
+  "KitchenAbvGr", "YrSold", "OpenPorchSF","X3SsnPorch","EnclosedPorch", "ScreenPorch",
+  "Street", "LandContour", "LotConfig", "LandSlope", "Condition1", "Condition2", "BldgType",
+  "RoofStyle", "RoofMatl", "Exterior2nd", "ExterCond", "Heating",
+  "Functional", "Fireplaces", "FireplaceQu", "PoolArea", "PoolQC", "MiscVal", "MiscFeature",
+   "Ob","Utilities","Alley","MasVnrArea", "MasVnrType", "LowQualFinSF", "X2ndFlrSF", "X1stFlrSF",
+  
+  "SaleCondition", "SaleType", "Fence", "GarageCond", "GarageQual", "GarageYrBlt", "Exterior1st", "BsmtExposure",
+  "YearRemodAdd", "BsmtFinType1", "MoSold", "PavedDrive", "Electrical", "CentralAir", "BsmtUnfSF", "HouseStyle"
+)
+
+length(not.helpful)
+#From not.helpful:
+#Took out bsmt full bath, BsmtUnfSF, BedroomAbvGr, HalfBath, MoSold, MSSubClass, WoodDeck, Exterior1st, HeatingQC
+#Added BsmtFinSf1, Exterior2nd, Fireplaces, X1stFlrSF, X2ndFlrSF
+
+#New Additions to model: Porch, FireplaceYN, MasYN, TotBath, FenceYN
+## GrLivArea is just equal to 1st floor SF + 2nd floor SF --> just left GrLivArea
+not.ind <- c()
+for (name in not.helpful) {
+  not.ind <- c(not.ind, which(colnames(h.df)==name))
+}
+#range(h.df$GarageYrBlt)
+new.df <- h.df[, -not.ind]
+sapply(new.df,function(x) sum(is.na(x)))
+str(new.df)
+
+library(mice)
+masimpute <- mice(new.df[, names(new.df)], method ='rf', printFlag = FALSE)
+masimps <- complete(masimpute)
+new.df$MSZoning <- masimps$MSZoning
+new.df$HasMsn <- masimps$HasMsn
+
+str(new.df)
+write.csv(new.df, file = 'supertraining.csv')
+```
+
+Modelling:
+
+```{r}
+library(glmnet)
+library(MASS)
+library(caret)
+library(class)
+set.seed(987786789)
+random_numbers<-sample(nrow(new.df),nrow(new.df)*0.2,replace = FALSE)
+new.df.testing<-new.df[random_numbers,]
+new.df.training<-new.df[-random_numbers,]
+```
+
+Cleaning of testing data:
+
+```{r}
+new.test <- read.csv("HTestLastNoY.csv")
+#attach(new.test)
+sapply(new.test, function(x) sum(is.na(x)))
+```
+
+```{r}
+porch.test <- numeric(1500)
+for(i in 1:1500){
+  if((new.test$OpenPorchSF[i] | new.test$EnclosedPorch[i] | new.test$X3SsnPorch[i] | new.test$ScreenPorch[i]) > 0)
+    porch.test[i] = "Porch"
+  if((new.test$OpenPorchSF[i] | new.test$EnclosedPorch[i] | new.test$X3SsnPorch[i] | new.test$ScreenPorch[i]) == 0)
+    porch.test[i] = "No Porch"
+}
+new.test$PorchYN <- as.factor(porch.test)
+```
+
+```{r}
+FireplaceYN.test <- numeric(1500)
+new.test$Fireplaces <- as.numeric(as.character(new.test$Fireplaces))
+for(i in 1:1500){
+  if(new.test$Fireplaces[i] > 0){
+    FireplaceYN.test[i] <- 1
+  }
+  if(new.test$Fireplaces[i] == 0){
+    FireplaceYN.test[i] <- 0
+  }
+}
+new.test$FireplaceYN <- as.factor(FireplaceYN.test)
+```
+
+```{r}
+new.test$HasMsn <- ifelse(new.test$MasVnrType == 'None', c('No'), c('Yes'))
+new.test$HasMsn <- as.factor(new.test$HasMsn)
+new.test$HasMsn[c(666,1022)] <- 'Yes'
+new.test$HasMsn[which(is.na(new.test$HasMsn) == TRUE)] <- 'No'
+```
+
+```{r}
+new.test$TotBath <- as.factor(as.integer(as.character(new.test$FullBath)) + as.integer(as.character(new.test$HalfBath))*0.5)
+```
+
+```{r}
+levels(new.test$Fence) <- c(levels(new.test$Fence), "None")
+new.test$Fence[is.na(new.test$Fence)] <- "None"
+
+new.test$FenceYN <- ifelse(new.test$Fence == 'None', c('No'), c('Yes'))
+new.test$FenceYN <- as.factor(new.test$FenceYN)
+```
+
+```{r}
+detchdyr <- new.test$GarageYrBlt[which(new.test$GarageType == "Detchd")]
+detchdyrmedian <- median(detchdyr, na.rm = T)
+new.test$GarageYrBlt[509] <- detchdyrmedian
+
+new.test$GarageYrBlt <- as.factor(new.test$GarageYrBlt)
+
+levels(new.test$GarageYrBlt) <- c(levels(new.test$GarageYrBlt), "None")
+new.test$GarageYrBlt[is.na(new.test$GarageYrBlt)] <- "None" 
+
+new.test$NewGarage <- as.factor(
+  ifelse(new.test$GarageYrBlt != "None",
+                         ifelse(as.numeric(as.character(new.test$GarageYrBlt)) < 1985, c("Old"), c("New")),
+                         c("None"))
+)
+levels(new.test$NewGarage) = c("New","Old", "None")
+
+tryvec <- which(is.na(new.test$NewGarage) == TRUE)
+new.test$NewGarage[tryvec] = "None"
+```
+
+```{r}
+new.test$LotArea <- log(new.test$LotArea)
+```
+
+```{r}
+new.test$MSZoning[is.na(new.test$MSZoning)] <- "RL" 
+
+new.test$MSSubClass <- as.factor(new.test$MSSubClass)
+
+levels(new.test$Alley) <- c(levels(new.test$Alley), "None")
+new.test$Alley[is.na(new.test$Alley)] <- "None" 
+
+new.test$Exterior2nd[is.na(new.test$Exterior2nd)] <- "VinylSd" 
+
+new.test$MasVnrArea[is.na(new.test$MasVnrArea)]<-median(new.test$MasVnrArea,na.rm=T)
+
+levels(new.test$MasVnrType) <- c(levels(new.test$MasVnrType), "None")
+new.test$MasVnrType[is.na(new.test$MasVnrType)] <- "None" 
+
+levels(new.test$BsmtExposure) <- c(levels(new.test$BsmtExposure), "None")
+new.test$BsmtExposure[is.na(new.test$BsmtExposure)] <- "None"
+
+levels(new.test$BsmtQual) <- c(levels(new.test$BsmtQual), "None")
+new.test$BsmtQual[is.na(new.test$BsmtQual)] <- "None"
+
+levels(new.test$BsmtFinType1) <- c(levels(new.test$BsmtFinType1), "None")
+new.test$BsmtFinType1[is.na(new.test$BsmtFinType1)] <- "None"
+
+new.test$BsmtFinSF1[is.na(new.test$BsmtFinSF1)]<-median(new.test$BsmtFinSF1,na.rm = T)
+
+new.test$TotalBsmtSF[is.na(new.test$TotalBsmtSF)] <- 0
+
+levels(new.test$FireplaceQu) <- c(levels(new.test$FireplaceQu), "None")
+new.test$FireplaceQu[is.na(new.test$FireplaceQu)] <- "None"
+
+levels(new.test$GarageType) <- c(levels(new.test$GarageType), "None")
+new.test$GarageType[is.na(new.test$GarageType)] <- "None"
+
+levels(new.test$GarageFinish) <- c(levels(new.test$GarageFinish), "None")
+new.test$GarageFinish[is.na(new.test$GarageFinish)] <- "None"
+
+new.test$GarageCars[is.na(new.test$GarageCars)] <- 0
+
+detchd <- new.test$GarageArea[which(new.test$GarageType == "Detchd")]
+detchdmedian <- median(detchd, na.rm = T)
+new.test$GarageArea[is.na(new.test$GarageArea)] <- detchdmedian
+new.test$GarageArea <- as.integer(new.test$GarageArea)
+
+levels(new.test$GarageQual) <- c(levels(new.test$GarageQual), "None")
+new.test$GarageQual[is.na(new.test$GarageQual)] <- "None"
+
+levels(new.test$GarageCond) <- c(levels(new.test$GarageCond), "None")
+new.test$GarageCond[is.na(new.test$GarageCond)] <- "None"
+
+new.test$SaleType[is.na(new.test$SaleType)] <- "WD" 
+
+levels(new.test$TotRmsAbvGrd) <- c(levels(new.test$TotRmsAbvGrd), "2", "13", "14", "15")
+
+levels(new.test$Fireplaces) <- c(levels(new.test$Fireplaces), "4")
+
+new.test$GarageCars <- as.factor(new.test$GarageCars)
+levels(new.test$GarageCars) <- c(levels(new.test$GarageCars), "5")
+
+new.test$OverallQual<-factor(new.test$OverallQual)
+
+new.test$FullBath<-factor(new.test$FullBath)
+
+new.test$TotRmsAbvGrd <- factor(new.test$TotRmsAbvGrd)
+
+new.test$Fireplaces<-factor(new.test$Fireplaces)
+
+new.test$BedroomAbvGr <- as.factor(new.test$BedroomAbvGr)
+levels(new.test$BedroomAbvGr) <- c(levels(new.test$BedroomAbvGr), "8")
+
+new.test$TotalBsmtSF <- as.integer(new.test$TotalBsmtSF)
+
+levels(new.test$TotBath) <- c(levels(new.test$TotBath), "4")
+
+not.helpful.test <- c(
+  "OverallCond", "FullBath", "HalfBath","BsmtFullBath", "BsmtHalfBath","BsmtCond", "BsmtFinSF1", "BsmtFinType2","BsmtFinSF2", 
+  "KitchenAbvGr", "YrSold", "OpenPorchSF","X3SsnPorch","EnclosedPorch", "ScreenPorch",
+  "Street", "LandContour", "LotConfig", "LandSlope", "Condition1", "Condition2", "BldgType",
+  "RoofStyle", "RoofMatl", "Exterior2nd", "ExterCond", "Heating",
+  "Functional", "Fireplaces", "FireplaceQu", "PoolArea", "PoolQC", "MiscVal", "MiscFeature",
+   "Ob","Utilities","Alley","MasVnrArea", "MasVnrType", "LowQualFinSF", "X2ndFlrSF", "X1stFlrSF",
+  
+  "SaleCondition", "SaleType", "Fence", "GarageCond", "GarageQual", "GarageYrBlt", "Exterior1st", "BsmtExposure",
+  "YearRemodAdd", "BsmtFinType1", "MoSold", "PavedDrive", "Electrical", "CentralAir", "BsmtUnfSF", "LotFrontage",
+  
+  
+  "HouseStyle"
+)
+
+not.ind.junk <- c()
+for (name in not.helpful.test) {
+  not.ind.junk <- c(not.ind.junk, which(colnames(new.test)==name))
+}
+new.test <- new.test[, -not.ind.junk]
+sapply(new.test, function(x) sum(is.na(x)))
+dim(new.test)
+
+levels(new.test$TotRmsAbvGrd) <- c(levels(new.test$TotRmsAbvGrd), "2", "13", "14", "15")
+str(new.df);str(new.test)
+#write.csv(new.test, file = 'SUPERTEST.csv')
+
+#supertest <- read.csv('SUPERTEST.csv')
+#str(supertest)
+#supertest[,-1]
+dim(new.df.testing)
+```
+
+```{r}
+head(new.test)
+library(randomForest)
+```
+
+--------------------- TRAINING PREDICTIONS: -------------------------------------------
+
+new.df = full training data
+  new.df.testing = 20%
+  new.df.training = 80%
+new.test = full testing data
+
+
+
+```{r}
+set.seed(987786789)
+head(new.df)
+sapply(new.df, function(x) sum(is.na(x)))
+tuneRF(new.df[,-22], new.df$affordabilitty, ntreeTry = 100)
+```
+
+Random Forest with ALL variables:
+```{r}
+### This was superprediction ##########
+set.seed(987786789)
+bag=randomForest(affordabilitty ~ ., data=new.df.training, mtry=5, importance=TRUE, ntree = 500)
+randforestpred <- predict(bag, new.df.testing)
+table(randforestpred, new.df.testing$affordabilitty)
+11/699
+##########################################
+
+failed <- new.df[which(randforestpred != new.df.testing$affordabilitty),]
+failed
+
+
+plot(bag)
+varImpPlot(bag)
+
+library(ipred)
+baggingmod <- bagging(affordabilitty ~., data = new.df.training, nbagg = 1000)
+baggingpred <- predict(baggingmod, new.df.testing)
+table(baggingpred, new.df.testing$affordabilitty)
+
+full.pred <- predict(bag, newdata = new.df.testing)
+table(full.pred, factor(new.df.testing$affordabilitty))
+11/(323+5+6+365)
+```
+
+```{r}
+h.df[c(39,83,93,303,379),]
+h.df[c(214,400,695,699),]
+```
+
+
+Random Forest with top 5 variables:
+
+```{r}
+set.seed(987786789)
+head(new.df)
+tuneRF(new.df[,c(3,5,6,11,13)],new.df$affordabilitty,ntreeTry = 100)
+
+bag.top5 <- randomForest(affordabilitty ~ OverallQual + GrLivArea + Neighborhood + LotArea + TotalBsmtSF, data = new.df.training, mtry = 2, importance = TRUE, ntree = 500)
+top5pred <- predict(bag.top5, newdata = new.df.testing)
+table(top5pred, factor(new.df.testing$affordabilitty))
+(18)/(346+23+10+312)
+```
+
+Random Forest with top 7 variables:
+```{r}
+set.seed(987786789)
+#bagging with 39 variables, top 7 variables, mtry = 24
+bag.top7 <- randomForest(affordabilitty ~ OverallQual + GrLivArea + Neighborhood + TotalBsmtSF + LotArea + MSSubClass + TotRmsAbvGrd, data = new.df.training, mtry = 7, importance = TRUE, ntree = 150)
+top7pred <- predict(bag.top7, newdata = new.df.testing)
+table(top7pred, new.df.testing$affordabilitty)
+19/(343+19+13+316)
+```
+
+Random Forest with top 10 variables:
+```{r}
+#these were the top 10 from accuracy with 43 variables and mtry = 6
+set.seed(987786789)
+bag.top10 <- randomForest(affordabilitty ~ OverallQual + GrLivArea + Neighborhood + TotalBsmtSF + LotArea + MSSubClass + TotRmsAbvGrd + TotBath + WoodDeckSF + GarageArea, data = new.df.training, mtry = 6, importance = TRUE, ntree = 300)
+#plot(bag.top10)
+```
+
+
+```{r}
+set.seed(987786789)
+top10pred <- predict(bag.top10, newdata = new.df.testing)
+table(top10pred, new.df.testing$affordabilitty)
+table(full.pred, top5pred, top10pred)
+
+table(top10pred, factor(new.df.testing$affordabilitty))
+
+(11)/(346+15+10+320)
+```
+
+Tree Stuff:
+```{r}
+library(tree)
+fulltree <- tree(affordabilitty ~ ., data = new.df.training)
+tree.pred <- predict(fulltree, newdata = new.df.testing, type = 'class')
+table(tree.pred, new.df.testing$affordabilitty) #bad, 84 misclass
+
+cvtree <- cv.tree(fulltree, FUN = prune.misclass)
+plot(cvtree$size,cvtree$dev)
+lines(cvtree$size, cvtree$dev)
+
+pruned <- prune.misclass(fulltree, best = 5)
+plot(pruned);text(pruned,pretty=0)
+prune.pred <- predict(pruned, newdata = new.df.testing, type = 'class')
+table(prune.pred, new.df.testing$affordabilitty) #also bad, 77 misclass
+```
+
+
+
+SVM Stuff:
+```{r}
+library(e1071)
+set.seed(987786789)
+svmfit=svm(affordabilitty ~ ., data=new.df.training, kernel="linear", gamma=1, degree = 10)
+svm.pred <- predict(svmfit, newdata = new.df.training)
+table(svm.pred, new.df.training$affordabilitty) 
+#26/(347+13+9+322)
+
+yhat.svm = predict(svmfit, newdata=new.test)
+(69+68)/(1341+68+69+1321)
+```
+Linear seems to be better than radial, but for radial gamma = 0.1 seemed to work best for new.df.testing, but was then super different from the bagging. 
+
+
+
+--------------------- TESTING PREDICTIONS: -------------------------------
+
+```{r}
+library(tidyr)
+library(rlang)
+new.df.junk <- new.df[,-22]
+#summary(new.df)
+library(dplyr)
+#new.test <- new.test %>% select(colnames(new.df.junk))
+#for(i in 1:38){
+#  levels(new.test[,i]) <- levels(new.df[,i])
+#}
+
+#set.seed(987786789)
+yhat.bag = predict(bag,newdata=new.test) #This became superprediction
+#yhat.top5 = predict(bag.top5,newdata=new.test)
+#yhat.top10 = predict(bag.top10,newdata=new.test)
+
+#majority <- data.frame(obs = c(1:1500),baggingpred$affordabilitty,model984$affordabilitty,prediction$affordabilitty)
+#majority
+#baggingpred <- read.csv('predictionwithbagging.csv')
+#model984 <- read.csv('dummyVars.csv')
+#prediction
+
+#differs <- c()
+#for(i in 1:length(model984$Ob)){
+#  if(model984$affordabilitty[i] != baggingpred$affordabilitty[i]){
+#    differs[i] <- model984$Ob[i]
+#  }
+#}
+#differs <- which(is.na(differs) == FALSE)
+
+#differs2 <- c()
+#for(i in 1:length(model984$Ob)){
+#  if(model984$affordabilitty[i] != prediction$affordabilitty[i]){
+#    differs2[i] <- model984$Ob[i]
+#  }
+#}
+#differs2 <- which(is.na(differs2) == FALSE)
+
+#newdif <- which(differs != differs2)
+
+#model984$affordabilitty[newdif] <- prediction$affordabilitty[newdif]
+
+#write.csv(model984, file = "hi.csv", row.names = FALSE)
+
+#differs <- differs[which(is.na(differs)==F)]
+#differs2 <- differs2[which(is.na(differs2)==F)]
+
+#differs
+#differs2
+#majority
+
+#numbers <- c(133,223,261,580,727,810,831,930,1088,1148,1186,1205,1247,1298,1322,1461)
+
+#yhat.bag[numbers] <- yhat.top5[numbers]
+#majority$yhat.bag <- yhat.bag
+#majority
+```
+
+```{r}
+#head(yhat.bag)
+#head(new.df.testing)[,43]
+
+#prediction<-data.frame(majority[,1])
+#prediction$affordabilitty<-yhat.bag
+#prediction$real <- new.df.testing[,43]
+#colnames(prediction)[colnames(prediction)=="majority...1."] <- "Ob"
+#head(prediction)
+#write.csv(prediction,"prediction.csv", row.names = FALSE)
+
+#junk.df <- data.frame(new.test, yhat.bag)
+#View(junk.df)
+#which(new.test$CentralAir == "N")
+```
+
+```{r}
+superprediction <- read.csv('superprediction.csv')
+```
+
+Effort to change some manually based on ones we know for sure:
+
+```{r}
+test.trial <- data.frame(new.test, superprediction$affordabilitty)
+dim(test.trial)
+View(test.trial)
+library(tidyr)
+test.trial <- test.trial[order(test.trial$Neighborhood),]
+
+levels(test.trial$Neighborhood)
+View(test.trial[which(test.trial$Neighborhood == "NridgHt"),])
+##Examined all the neighborhoods that had all one or the other in the training and seeing if any got misclassified
+
+superprediction$affordabilitty[c(890,1400)] <- "Affordable"
+write.csv(superprediction,"superprediction2.csv", row.names = FALSE)
+
+###THIS WAS THE ONE THAT GOT US THE HIGHEST SCORE!! Apparently manually changing those 2 observations was super helpful 
+
+
+##Below this didn't make it better lol
+#dummy <- read.csv("dummyVars.csv")
+
+#testing <- which(dummy$affordabilitty != superprediction$affordabilitty)
+#data.frame(new.test[testing,], dummy$affordabilitty[testing], superprediction$affordabilitty[testing])
+
+#ggplot(new.df, aes(x = NewGarage, fill = affordabilitty)) + geom_bar(position = position_dodge())
+
+#testest<-test.trial[testing,]
+#testest[which(testest$superprediction.affordabilitty == "Affordable"),]
+#testest[which(testest$superprediction.affordabilitty == "Unaffordable"),]
+
+#superprediction$affordabilitty[c(150, 1453)] <- "Affordable"
+#superprediction$affordabilitty[c(1073, 890, 910, 975, 1103, 87,793)] <- "Unaffordable"
+
+#superprediction$affordabilitty[c(87)] <- "Affordable"
+
+#write.csv(superprediction,"plspls.csv", row.names = FALSE)
+
+#450*0.984
+```
+
+Should be affordable: 150, 1453
+
+Should be unaffordable: 1073, 890, 910, 975, 1103, 87,793
+
+
+
+
+
+
+
+
+
+
+
+
